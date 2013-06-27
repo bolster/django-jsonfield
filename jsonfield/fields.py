@@ -130,10 +130,13 @@ class JSONFieldBase(six.with_metaclass(SubfieldBase, base=models.Field)):
         return super(JSONFieldBase, self).get_default()
 
     def db_type(self, connection):
-        if connection.vendor == 'postgresql' and connection.pg_version >= 90200:
-            return 'json'
-        else:
-            return super(JSONFieldBase, self).db_type(connection)
+        # BREAKS CERTAIN THINGS
+        # if connection.vendor == 'postgresql' and connection.pg_version >= 90200:
+        #     return 'json'
+        # else:
+        #     return super(JSONFieldBase, self).db_type(connection)
+        ###
+        return super(JSONFieldBase, self).db_type(connection)
 
 class JSONField(JSONFieldBase, models.TextField):
     """JSONField is a generic textfield that serializes/unserializes JSON objects"""
