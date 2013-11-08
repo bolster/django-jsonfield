@@ -47,7 +47,7 @@ class JSONCharFormField(JSONFormFieldBase, fields.CharField):
     pass
 
 
-class JSONFieldBase(six.with_metaclass(SubfieldBase, base=models.Field)):
+class JSONFieldBase(six.with_metaclass(SubfieldBase, models.Field)):
 
     def __init__(self, *args, **kwargs):
         self.dump_kwargs = kwargs.pop('dump_kwargs', {
@@ -65,12 +65,16 @@ class JSONFieldBase(six.with_metaclass(SubfieldBase, base=models.Field)):
         to_python so that we can check the obj state and determine if it needs to be
         deserialized"""
 
-        if obj._state.adding and obj.pk is not None:
-            if isinstance(value, six.string_types):
-                try:
-                    return json.loads(value, **self.load_kwargs)
-                except ValueError:
-                    raise ValidationError(_("Enter valid JSON"))
+        if obj._state.adding:
+            # Make sure the primary key actually exists on the object before
+            # checking if it's empty. This is a special case for South datamigrations
+            # see: https://github.com/bradjasper/django-jsonfield/issues/52
+            if not hasattr(obj, "pk") or obj.pk is not None:
+                if isinstance(value, six.string_types):
+                    try:
+                        return json.loads(value, **self.load_kwargs)
+                    except ValueError:
+                        raise ValidationError(_("Enter valid JSON"))
 
         return value
 
@@ -130,13 +134,10 @@ class JSONFieldBase(six.with_metaclass(SubfieldBase, base=models.Field)):
         return super(JSONFieldBase, self).get_default()
 
     def db_type(self, connection):
-        # BREAKS CERTAIN THINGS
-        # if connection.vendor == 'postgresql' and connection.pg_version >= 90200:
-        #     return 'json'
-        # else:
-        #     return super(JSONFieldBase, self).db_type(connection)
-        ###
-        return super(JSONFieldBase, self).db_type(connection)
+        if connection.vendor == 'postgresql' and connection.pg_version >= 90300:
+            return 'json'
+        else:
+            return super(JSONFieldBase, self).db_type(connection)
 
 class JSONField(JSONFieldBase, models.TextField):
     """JSONField is a generic textfield that serializes/unserializes JSON objects"""
